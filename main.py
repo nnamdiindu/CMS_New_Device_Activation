@@ -100,24 +100,18 @@ class NewActivation:
         # Get all rows inside tbody
         rows = table.find_elements(By.CSS_SELECTOR, "tbody tr.el-table__row")
 
-        print(f"Found {len(rows)} rows")
-
+        # TODO: Loop through each OLT to perform tasks
         # Loop through each row
         for i, row in enumerate(rows, start=1):
+
             # find the Details button inside this row
             details_button = row.find_element(By.CSS_SELECTOR, "button.detail-btn")
 
-            print(f"Clicking Details button in row {i}")
+            logger.info(f"Clicking Details button in row {i}")
             details_button.click()
 
             # TODO: Handle modal / popup / new page here if it appears
             self.device_configuration()
-
-            # If popup/modal appears, you may need a wait before proceeding
-            WebDriverWait(self.driver, 2).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "body"))
-            )
-
 
 
     def device_configuration(self):
@@ -135,28 +129,46 @@ class NewActivation:
         search_button.click()
 
         try:
-            # Wait until table is visible
-            table = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, '#pane-onu > div > div.i-card-wrap > div.i-card-main.padding16 > div.el-table.min-table-wrap.el-table--fit.el-table--enable-row-transition.el-table--medium > div.el-table__body-wrapper.is-scrolling-none > table'))
-            )
+            visible_rows = self.get_table_rows_of_devices()
 
-            # Get all rows inside tbody
-            rows = table.find_elements(By.CSS_SELECTOR, "tbody tr.el-table__row")
-
-            if len(rows) > 0:
-                print(f"✅ Table exists with {len(rows)} row(s).")
+            if len(visible_rows) > 0:
+                print(f"✅ Table exists with {len(visible_rows)} row(s).")
             else:
                 print("⚠️ Table exists but has no rows.")
+                self.driver.back()
+                time.sleep(5)
+                self.driver.back()
 
         except NoSuchElementException:
             print("❌ No table found inside the div.")
+            self.driver.back()
 
+    def get_table_rows_of_devices(self):
+        # Try both possible scrolling states
+        selectors = [
+            ".el-table__body-wrapper.is-scrolling-none tbody tr",
+            ".el-table__body-wrapper.is-scrolling-left tbody tr",
+            ".el-table__body-wrapper tbody tr"  # fallback
+        ]
+
+        for selector in selectors:
+            try:
+                rows = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                if rows:
+                    visible_rows = [row for row in rows if row.is_displayed()]
+                    print(f"Found {len(visible_rows)} visible rows with selector: {selector}")
+                    return visible_rows
+            except Exception as e:
+                print(f"Selector '{selector}' failed: {e}")
+                continue
+
+        return []
 
 
     def run_activation(self):
         self.setup_driver()
         if self.login_to_device():
-            self.search_olt("UNITY")
+            self.search_olt("sunshine")
             self.click_detail_button()
 
 
